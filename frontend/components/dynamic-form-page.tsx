@@ -38,9 +38,8 @@ function FormField({
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         readOnly={readOnly}
-        className={`rounded-lg border-border bg-background px-4 py-3 ${
-          readOnly ? "cursor-not-allowed opacity-60" : ""
-        }`}
+        className={`rounded-lg border-border bg-background px-4 py-3 ${readOnly ? "cursor-not-allowed opacity-60" : ""
+          }`}
       />
     </div>
   )
@@ -116,30 +115,30 @@ export function DynamicFormPage() {
 
     const payload = {
       profile_type: profile,
-      monthly_income:  parseFloat(formData.monthlyIncome)  || 0,
+      monthly_income: parseFloat(formData.monthlyIncome) || 0,
       income_variance,
       savings_balance: parseFloat(formData.savingsBalance) || 0,
-      months_active:   parseFloat(formData.monthsActive)   || 0,
+      months_active: parseFloat(formData.monthsActive) || 0,
       // transaction fields
-      total_credits:      parseFloat(formData.totalCredits)      || 0,
-      total_debits:       parseFloat(formData.totalDebits)       || 0,
+      total_credits: parseFloat(formData.totalCredits) || 0,
+      total_debits: parseFloat(formData.totalDebits) || 0,
       total_transactions: parseFloat(formData.totalTransactions) || 0,
-      avg_credit_amount:  parseFloat(formData.avgCreditAmount)   || 0,
-      avg_debit_amount:   parseFloat(formData.avgDebitAmount)    || 0,
-      recurring_ratio:    parseFloat(formData.recurringRatio)    || 0,
+      avg_credit_amount: parseFloat(formData.avgCreditAmount) || 0,
+      avg_debit_amount: parseFloat(formData.avgDebitAmount) || 0,
+      recurring_ratio: parseFloat(formData.recurringRatio) || 0,
       // profile-specific
-      ...(profile === "student"    && { gpa, attendance_rate }),
-      ...(profile === "gig"        && {
-        platform_rating:  parseFloat(formData.platformRating)  || 0,
-        avg_weekly_hours: parseFloat(formData.avgWeeklyHours)  || 0,
+      ...(profile === "student" && { gpa, attendance_rate }),
+      ...(profile === "gig" && {
+        platform_rating: parseFloat(formData.platformRating) || 0,
+        avg_weekly_hours: parseFloat(formData.avgWeeklyHours) || 0,
       }),
       ...(profile === "shopkeeper" && {
-        business_years:    parseFloat(formData.businessYears)    || 0,
-        avg_daily_revenue: parseFloat(formData.avgDailyRevenue)  || 0,
+        business_years: parseFloat(formData.businessYears) || 0,
+        avg_daily_revenue: parseFloat(formData.avgDailyRevenue) || 0,
       }),
-      ...(profile === "rural"      && {
-        land_size_acres:   parseFloat(formData.landSize)          || 0,
-        subsidy_amount:    parseFloat(formData.subsidyAmount)     || 0,
+      ...(profile === "rural" && {
+        land_size_acres: parseFloat(formData.landSize) || 0,
+        subsidy_amount: parseFloat(formData.subsidyAmount) || 0,
         seasonality_index: parseFloat(formData.seasonalityIndex) || 0,
       }),
     }
@@ -473,7 +472,7 @@ export function DynamicFormPage() {
                 Calculating Score...
               </span>
             ) : (
-              "Check Your Bridge Score"
+              "Generate Credit Score"
             )}
           </Button>
         </form>

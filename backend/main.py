@@ -441,11 +441,19 @@ def predict(body: PredictRequest) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# AI Insights (Google Gemini)
+# AI Insights (Google Gemini) — multi-model fallback
 # ---------------------------------------------------------------------------
 
 GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+
+# Models to try in order — if one fails, try the next
+GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+]
 
 
 class InsightsRequest(BaseModel):
@@ -463,8 +471,14 @@ class InsightsResponse(BaseModel):
 async def get_insights(body: InsightsRequest) -> dict[str, Any]:
     """
     Generate AI-powered suggestions to improve the user's credit score.
-    Uses Google Gemini to produce personalised tips.
+    Uses Google Gemini with multi-model fallback.
     """
+    if not GEMINI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY is not configured. Please set it in the .env file to enable AI insights.",
+        )
+
     factors_text = "\n".join(
         f"- {f.get('label', '?')} ({f.get('direction', '?')})"
         for f in body.top_factors
@@ -481,52 +495,104 @@ async def get_insights(body: InsightsRequest) -> dict[str, Any]:
         f"Return ONLY a JSON array of 5 strings, no other text."
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                GEMINI_URL,
-                params={"key": GEMINI_API_KEY},
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [
-                        {"parts": [{"text": prompt}]}
-                    ],
-                    "generationConfig": {
-                        "temperature": 0.7,
-                        "maxOutputTokens": 500,
-                    },
-                },
-            )
-            resp.raise_for_status()
+    request_json = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 500,
+        },
+    }
 
-        data = resp.json()
-        content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    last_error = None
 
-        # Parse the JSON array from the LLM response
-        import json
-        # Strip markdown code fences if present
-        if content.startswith("```"):
-            content = "\n".join(content.split("\n")[1:])
-        if content.endswith("```"):
-            content = content[:-3].strip()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for model_name in GEMINI_MODELS:
+            url = f"{GEMINI_BASE_URL}/{model_name}:generateContent"
+            try:
+                resp = await client.post(
+                    url,
+                    params={"key": GEMINI_API_KEY},
+                    headers={"Content-Type": "application/json"},
+                    json=request_json,
+                )
+                resp.raise_for_status()
 
-        try:
-            insights = json.loads(content)
-            if isinstance(insights, list):
-                return {"insights": [str(tip) for tip in insights[:5]]}
-        except json.JSONDecodeError:
-            pass
+                data = resp.json()
 
-        # Fallback: split by newlines if JSON parsing fails
-        lines = [
-            line.strip().lstrip("0123456789.-) ").strip()
-            for line in content.split("\n")
-            if line.strip() and len(line.strip()) > 10
-        ]
-        return {"insights": lines[:5] if lines else [content]}
+                # Check for valid response structure
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    last_error = f"Model {model_name} returned no candidates"
+                    continue
 
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"LLM API error: {e.response.status_code}")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to get AI insights: {str(e)}")
+                content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                if not content:
+                    last_error = f"Model {model_name} returned empty content"
+                    continue
+
+                # Parse the JSON array from the LLM response
+                import json
+                # Strip markdown code fences if present
+                if content.startswith("```"):
+                    content = "\n".join(content.split("\n")[1:])
+                if content.endswith("```"):
+                    content = content[:-3].strip()
+
+                try:
+                    insights = json.loads(content)
+                    if isinstance(insights, list) and len(insights) > 0:
+                        return {"insights": [str(tip) for tip in insights[:5]]}
+                except json.JSONDecodeError:
+                    pass
+
+                # Fallback: split by newlines if JSON parsing fails
+                lines = [
+                    line.strip().lstrip("0123456789.-) ").strip()
+                    for line in content.split("\n")
+                    if line.strip() and len(line.strip()) > 10
+                ]
+                if lines:
+                    return {"insights": lines[:5]}
+
+                # If we got content but couldn't parse it, return it raw
+                return {"insights": [content]}
+
+            except httpx.HTTPStatusError as e:
+                status = e.response.status_code
+                try:
+                    err_body = e.response.json()
+                    err_msg = err_body.get("error", {}).get("message", str(e))
+                except Exception:
+                    err_msg = str(e)
+
+                if status == 400:
+                    last_error = f"Model {model_name}: Bad request — {err_msg}"
+                elif status == 403:
+                    last_error = f"API key invalid or not authorized. Please check your GEMINI_API_KEY."
+                    # Don't try other models if the key itself is bad
+                    break
+                elif status == 404:
+                    last_error = f"Model {model_name} not available, trying next..."
+                    continue
+                elif status == 429:
+                    last_error = f"Rate limit exceeded for {model_name}. Please try again in a minute."
+                    continue
+                elif status == 500 or status == 503:
+                    last_error = f"Model {model_name} is temporarily unavailable, trying next..."
+                    continue
+                else:
+                    last_error = f"Model {model_name} returned HTTP {status}: {err_msg}"
+                    continue
+
+            except httpx.TimeoutException:
+                last_error = f"Model {model_name} timed out after 30s, trying next..."
+                continue
+
+            except Exception as e:
+                last_error = f"Model {model_name} failed: {str(e)}"
+                continue
+
+    # All models failed
+    detail = last_error or "All Gemini models failed. Please try again later."
+    raise HTTPException(status_code=502, detail=detail)
 
