@@ -1,0 +1,12 @@
+# Node
+node_modules/
+.next/
+/dist
+
+# Python
+__pycache__/
+*.py[cod]
+.env
+
+# Docker
+**/venv/
