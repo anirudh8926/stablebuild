@@ -441,11 +441,11 @@ def predict(body: PredictRequest) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# AI Insights (OpenRouter / OpenAI-compatible)
+# AI Insights (Google Gemini)
 # ---------------------------------------------------------------------------
 
-OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 
 class InsightsRequest(BaseModel):
@@ -463,7 +463,7 @@ class InsightsResponse(BaseModel):
 async def get_insights(body: InsightsRequest) -> dict[str, Any]:
     """
     Generate AI-powered suggestions to improve the user's credit score.
-    Uses OpenRouter (OpenAI-compatible) to produce personalised tips.
+    Uses Google Gemini to produce personalised tips.
     """
     factors_text = "\n".join(
         f"- {f.get('label', '?')} ({f.get('direction', '?')})"
@@ -484,28 +484,32 @@ async def get_insights(body: InsightsRequest) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                OPENAI_URL,
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
+                GEMINI_URL,
+                params={"key": GEMINI_API_KEY},
+                headers={"Content-Type": "application/json"},
                 json={
-                    "model": "gpt-3.5-turbo",
-                    "messages": [
-                        {"role": "system", "content": "You are a helpful credit advisor. Always respond with valid JSON only."},
-                        {"role": "user", "content": prompt},
+                    "contents": [
+                        {"parts": [{"text": prompt}]}
                     ],
-                    "temperature": 0.7,
-                    "max_tokens": 500,
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "maxOutputTokens": 500,
+                    },
                 },
             )
             resp.raise_for_status()
 
         data = resp.json()
-        content = data["choices"][0]["message"]["content"].strip()
+        content = data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
         # Parse the JSON array from the LLM response
         import json
+        # Strip markdown code fences if present
+        if content.startswith("```"):
+            content = "\n".join(content.split("\n")[1:])
+        if content.endswith("```"):
+            content = content[:-3].strip()
+
         try:
             insights = json.loads(content)
             if isinstance(insights, list):
