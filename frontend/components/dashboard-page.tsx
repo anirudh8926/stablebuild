@@ -6,7 +6,10 @@ import { fetchInsights } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { TrendingUp, Wallet, Clock, Settings, Lightbulb, RefreshCw, Sparkles } from "lucide-react"
+import {
+  TrendingUp, Wallet, Clock, Settings, RefreshCw, Sparkles,
+  ArrowUpRight, ArrowDownRight, Target, CheckCircle2
+} from "lucide-react"
 
 function ScoreSkeleton() {
   return (
@@ -17,6 +20,51 @@ function ScoreSkeleton() {
       <Skeleton className="h-4 w-36" />
     </div>
   )
+}
+
+/* ── Static tips derived from top factors (always available, no API needed) ── */
+const FACTOR_TIPS: Record<string, { positive: string; negative: string }> = {
+  "Monthly income": { positive: "Great income level! Keep it steady to maintain your score.", negative: "Try to increase your income through side gigs or upskilling." },
+  "Income variance": { positive: "Your income is consistent — lenders love stability.", negative: "High income swings hurt your score. Try to stabilize your earnings." },
+  "Savings balance": { positive: "Strong savings! This shows financial discipline.", negative: "Build an emergency fund — even ₹500/month helps your score." },
+  "Months of economic activity": { positive: "Long financial history works in your favor.", negative: "Keep your accounts active. Longer history boosts your score." },
+  "Income stability": { positive: "Stable income is a strong positive signal.", negative: "Irregular income lowers your score. Seek consistent revenue sources." },
+  "Savings-to-income ratio": { positive: "Good savings rate! Keep saving consistently.", negative: "Aim to save at least 10-20% of your income each month." },
+  "Liquidity buffer": { positive: "Good emergency buffer! This reduces risk.", negative: "Build a 3-month expense buffer for financial security." },
+  "Total credits": { positive: "Healthy credit inflows show strong earning.", negative: "Increase your credit inflows through more revenue channels." },
+  "Total debits": { positive: "Controlled spending helps your score.", negative: "Reduce unnecessary spending to improve your financial profile." },
+  "Transaction volume": { positive: "Active banking shows financial engagement.", negative: "Use your bank account more regularly — even small transactions help." },
+  "Avg credit size": { positive: "Good average credit amounts.", negative: "Larger, consistent credits signal reliability to lenders." },
+  "Avg debit size": { positive: "Controlled spending per transaction.", negative: "Avoid large irregular withdrawals — spread expenses evenly." },
+  "Recurring payment rate": { positive: "Regular payments show reliability.", negative: "Set up auto-payments for bills to build consistency." },
+  "Net cashflow": { positive: "Positive cashflow is a great sign!", negative: "Spend less than you earn to turn your cashflow positive." },
+  "Credit-to-debit ratio": { positive: "More money coming in than going out — excellent!", negative: "Aim to keep your credit-debit ratio above 1.0." },
+  "GPA": { positive: "Strong academics contribute positively to your profile.", negative: "Improving your GPA can help demonstrate discipline." },
+  "Attendance rate": { positive: "Good attendance shows commitment.", negative: "Better attendance can improve your credit profile." },
+  "Platform rating": { positive: "High platform ratings boost your score!", negative: "Work on improving your platform ratings for a better score." },
+  "Avg weekly hours worked": { positive: "Consistent work hours show dedication.", negative: "More consistent working hours help demonstrate reliability." },
+  "Years in business": { positive: "Business longevity shows stability.", negative: "Keep your business active — longevity builds trust." },
+  "Avg daily revenue": { positive: "Strong daily revenue is excellent!", negative: "Focus on growing your daily sales for better scores." },
+  "Land size (acres)": { positive: "Agricultural assets are a positive indicator.", negative: "Consider expanding or making better use of your land." },
+  "Subsidy amount": { positive: "Government subsidies help your financial profile.", negative: "Explore government subsidy programs you may be eligible for." },
+  "Seasonality index": { positive: "Well-managed seasonal income.", negative: "Plan for off-seasons — save during peak times." },
+  "Missed payment signal": { positive: "No missed payment signals — keep it up!", negative: "Avoid missed payments at all costs — set up reminders or auto-pay." },
+}
+
+function getStaticTips(factors: { label: string; direction: string }[]): { label: string; tip: string; isPositive: boolean }[] {
+  return factors.map(f => {
+    const entry = FACTOR_TIPS[f.label]
+    const isPositive = f.direction === "positive"
+    return {
+      label: f.label,
+      tip: entry
+        ? (isPositive ? entry.positive : entry.negative)
+        : isPositive
+          ? `${f.label} is helping your score — keep it up!`
+          : `Improving your ${f.label.toLowerCase()} could boost your score.`,
+      isPositive,
+    }
+  })
 }
 
 export function DashboardPage() {
@@ -92,6 +140,8 @@ export function DashboardPage() {
     },
   ]
 
+  const staticTips = getStaticTips(topFactors)
+
   return (
     <main className="min-h-screen px-4 pb-20 pt-28">
       <div className="mx-auto max-w-3xl">
@@ -156,28 +206,47 @@ export function DashboardPage() {
           ))}
         </div>
 
-        {/* Top Factors */}
+        {/* ── Score Improvement Section ── */}
         {!isLoading && topFactors.length > 0 && (
-          <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
-              What drives your score
-            </h2>
+          <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm animate-slide-up stagger-1">
+            <div className="mb-5 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                <Target className="h-4 w-4 text-blue-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Score Breakdown & How to Improve
+              </h2>
+            </div>
+
             <div className="flex flex-col gap-3">
-              {topFactors.map((factor, i) => (
+              {staticTips.map((item, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between rounded-xl bg-secondary/50 px-4 py-3 transition-all duration-200 hover:bg-secondary/80 hover:translate-x-1"
+                  className={`flex items-start gap-3 rounded-xl px-4 py-3 transition-all duration-200 hover:translate-x-1 ${item.isPositive
+                      ? "bg-emerald-50 border border-emerald-100"
+                      : "bg-amber-50 border border-amber-100"
+                    }`}
                 >
-                  <span className="text-sm text-foreground">{factor.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs font-medium ${factor.direction === "positive"
-                          ? "text-emerald-600"
-                          : "text-red-500"
-                        }`}
-                    >
-                      {factor.direction === "positive" ? "▲ Helps" : "▼ Hurts"}
-                    </span>
+                  <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${item.isPositive ? "bg-emerald-100" : "bg-amber-100"
+                    }`}>
+                    {item.isPositive
+                      ? <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600" />
+                      : <ArrowDownRight className="h-3.5 w-3.5 text-amber-600" />
+                    }
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${item.isPositive ? "text-emerald-800" : "text-amber-800"
+                      }`}>
+                      {item.label}
+                      <span className={`ml-2 text-xs font-normal ${item.isPositive ? "text-emerald-600" : "text-amber-600"
+                        }`}>
+                        {item.isPositive ? "Helping your score" : "Needs improvement"}
+                      </span>
+                    </p>
+                    <p className={`mt-0.5 text-sm ${item.isPositive ? "text-emerald-700" : "text-amber-700"
+                      }`}>
+                      {item.tip}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -185,16 +254,16 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* AI Insights */}
+        {/* ── AI-Powered Personalized Tips ── */}
         {!isLoading && creditScore && (
-          <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm animate-slide-up stagger-2">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
                   <Sparkles className="h-4 w-4 text-amber-600" />
                 </div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  How to Improve Your Score
+                  AI-Powered Tips
                 </h2>
               </div>
               <Button
@@ -223,7 +292,7 @@ export function DashboardPage() {
               </div>
             ) : insightsError ? (
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
-                <p className="text-sm font-medium text-red-700">⚠️ Could not load insights</p>
+                <p className="text-sm font-medium text-red-700">⚠️ Could not load AI tips</p>
                 <p className="mt-1 text-xs text-red-600">{insightsError}</p>
                 <Button
                   variant="outline"
@@ -240,9 +309,9 @@ export function DashboardPage() {
                 {insights.map((tip, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+                    className="flex items-start gap-3 rounded-xl bg-secondary/50 px-4 py-3 transition-all duration-200 hover:bg-secondary/80"
                   >
-                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-amber-100 text-xs font-bold text-amber-700">
                       {i + 1}
                     </div>
                     <p className="text-sm leading-relaxed text-foreground">{tip}</p>
@@ -251,12 +320,12 @@ export function DashboardPage() {
               </div>
             ) : (
               <p className="text-center text-sm text-muted-foreground">
-                Click refresh to generate AI-powered tips.
+                Click refresh to generate personalized AI tips.
               </p>
             )}
 
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Powered by AI · Tips are personalised to your profile
+              Powered by Google Gemini · Personalized to your {formData.profileType} profile
             </p>
           </div>
         )}

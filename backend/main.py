@@ -499,7 +499,7 @@ async def get_insights(body: InsightsRequest) -> dict[str, Any]:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 500,
+            "maxOutputTokens": 2048,
         },
     }
 
@@ -530,32 +530,53 @@ async def get_insights(body: InsightsRequest) -> dict[str, Any]:
                     last_error = f"Model {model_name} returned empty content"
                     continue
 
-                # Parse the JSON array from the LLM response
                 import json
-                # Strip markdown code fences if present
-                if content.startswith("```"):
-                    content = "\n".join(content.split("\n")[1:])
-                if content.endswith("```"):
-                    content = content[:-3].strip()
+                import re
 
+                # ── Clean up code fences ──
+                # Handle ```json ... ```, ``` ... ```, etc.
+                cleaned = re.sub(r"^```(?:json)?\s*\n?", "", content, flags=re.IGNORECASE)
+                cleaned = re.sub(r"\n?```\s*$", "", cleaned)
+                cleaned = cleaned.strip()
+
+                # ── Try JSON parse ──
                 try:
-                    insights = json.loads(content)
-                    if isinstance(insights, list) and len(insights) > 0:
-                        return {"insights": [str(tip) for tip in insights[:5]]}
+                    parsed = json.loads(cleaned)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        tips = [str(t).strip().strip('"').strip() for t in parsed if str(t).strip()]
+                        if tips:
+                            return {"insights": tips[:5]}
                 except json.JSONDecodeError:
                     pass
 
-                # Fallback: split by newlines if JSON parsing fails
-                lines = [
-                    line.strip().lstrip("0123456789.-) ").strip()
-                    for line in content.split("\n")
-                    if line.strip() and len(line.strip()) > 10
-                ]
+                # ── Try to find a JSON array in the text ──
+                array_match = re.search(r'\[[\s\S]*\]', cleaned)
+                if array_match:
+                    try:
+                        parsed = json.loads(array_match.group())
+                        if isinstance(parsed, list) and len(parsed) > 0:
+                            tips = [str(t).strip().strip('"').strip() for t in parsed if str(t).strip()]
+                            if tips:
+                                return {"insights": tips[:5]}
+                    except json.JSONDecodeError:
+                        pass
+
+                # ── Fallback: parse numbered list (1. tip, 2. tip, etc.) ──
+                lines = []
+                for line in cleaned.split("\n"):
+                    line = line.strip()
+                    # Remove numbering: "1. ", "1) ", "- ", "* ", etc.
+                    line = re.sub(r'^[\d]+[.):\-]\s*', '', line)
+                    line = re.sub(r'^[-*•]\s*', '', line)
+                    line = line.strip().strip('"').strip("'").strip()
+                    if line and len(line) > 15:
+                        lines.append(line)
                 if lines:
                     return {"insights": lines[:5]}
 
-                # If we got content but couldn't parse it, return it raw
-                return {"insights": [content]}
+                # ── Last resort: return the whole content as one tip ──
+                if len(cleaned) > 15:
+                    return {"insights": [cleaned[:500]]}
 
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
