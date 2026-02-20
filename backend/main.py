@@ -444,11 +444,8 @@ def predict(body: PredictRequest) -> dict[str, Any]:
 # AI Insights (OpenRouter / OpenAI-compatible)
 # ---------------------------------------------------------------------------
 
-OPENROUTER_API_KEY: str = os.environ.get(
-    "OPENROUTER_API_KEY",
-    "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",
-)
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
 
 class InsightsRequest(BaseModel):
@@ -487,13 +484,13 @@ async def get_insights(body: InsightsRequest) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                OPENROUTER_URL,
+                OPENAI_URL,
                 headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "openai/gpt-3.5-turbo",
+                    "model": "gpt-3.5-turbo",
                     "messages": [
                         {"role": "system", "content": "You are a helpful credit advisor. Always respond with valid JSON only."},
                         {"role": "user", "content": prompt},
