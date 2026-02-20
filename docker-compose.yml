@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   backend:
@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - OPENROUTER_API_KEY=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
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

@@ -33,6 +33,7 @@ docker compose up --build
 ## Local Development
 
 ### Frontend (Next.js)
+
 ```bash
 cd frontend
 npm install
@@ -41,6 +42,7 @@ npm run dev
 ```
 
 ### Backend (FastAPI)
+
 ```bash
 cd backend
 python -m venv venv
@@ -53,6 +55,7 @@ uvicorn app.main:app --reload --port 8000
 ## API Endpoints
 
 **POST /score** - Score a borrower
+
 - Body: Form fields (monthly_income, profile_type, etc.)
 - Returns: alternative_credit_score, risk_band, top_factors, probabilities
 

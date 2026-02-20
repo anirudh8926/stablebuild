@@ -10,6 +10,13 @@ export interface UserFormData {
   incomeStability: string
   savingsBalance: string
   monthsActive: string
+  // Transaction
+  totalCredits: string
+  totalDebits: string
+  totalTransactions: string
+  avgCreditAmount: string
+  avgDebitAmount: string
+  recurringRatio: string
   // Student
   universityName: string
   gpa: string
@@ -73,6 +80,12 @@ const defaultFormData: UserFormData = {
   incomeStability: "",
   savingsBalance: "",
   monthsActive: "",
+  totalCredits: "",
+  totalDebits: "",
+  totalTransactions: "",
+  avgCreditAmount: "",
+  avgDebitAmount: "",
+  recurringRatio: "",
   universityName: "",
   gpa: "",
   yearOfStudy: "",

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useAppState } from "@/lib/app-context"
+import { fetchInsights } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { TrendingUp, Wallet, Clock, Settings, ArrowUp, ArrowDown } from "lucide-react"
+import { TrendingUp, Wallet, Clock, Settings, Lightbulb, RefreshCw, Sparkles } from "lucide-react"
 
 function ScoreSkeleton() {
   return (
@@ -21,11 +22,45 @@ function ScoreSkeleton() {
 export function DashboardPage() {
   const { userName, creditScore, riskBand, topFactors, formData, scoreHistory, setCurrentPage } = useAppState()
   const [isLoading, setIsLoading] = useState(true)
+  const [insights, setInsights] = useState<string[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [insightsError, setInsightsError] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 800)
     return () => clearTimeout(timer)
   }, [])
+
+  const loadInsights = async () => {
+    if (!creditScore || !riskBand) return
+    setInsightsLoading(true)
+    setInsightsError(null)
+    try {
+      const profileMap: Record<string, string> = {
+        "gig-worker": "gig", student: "student",
+        shopkeeper: "shopkeeper", rural: "rural", salaried: "salaried",
+      }
+      const tips = await fetchInsights({
+        score: creditScore,
+        risk_band: riskBand,
+        profile_type: profileMap[formData.profileType] ?? "salaried",
+        top_factors: topFactors.map(f => ({
+          label: f.label, direction: f.direction, impact: f.impact,
+        })),
+      })
+      setInsights(tips)
+    } catch (err) {
+      setInsightsError(err instanceof Error ? err.message : "Failed to load insights")
+    } finally {
+      setInsightsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isLoading && creditScore && riskBand) {
+      loadInsights()
+    }
+  }, [isLoading, creditScore, riskBand])
 
   const bandColor =
     riskBand === "Low"
@@ -147,6 +182,70 @@ export function DashboardPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* AI Insights */}
+        {!isLoading && creditScore && (
+          <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  How to Improve Your Score
+                </h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={loadInsights}
+                disabled={insightsLoading}
+              >
+                <RefreshCw className={`mr-1 h-3 w-3 ${insightsLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+
+            {insightsLoading ? (
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex items-start gap-3 rounded-xl bg-secondary/50 px-4 py-3">
+                    <Skeleton className="mt-0.5 h-5 w-5 shrink-0 rounded" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="mt-1 h-4 w-3/4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : insightsError ? (
+              <p className="text-center text-sm text-red-500">{insightsError}</p>
+            ) : insights.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {insights.map((tip, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-xl bg-secondary/50 px-4 py-3"
+                  >
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">
+                      {i + 1}
+                    </div>
+                    <p className="text-sm leading-relaxed text-foreground">{tip}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-muted-foreground">
+                Click refresh to generate AI-powered tips.
+              </p>
+            )}
+
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Powered by AI · Tips are personalised to your profile
+            </p>
           </div>
         )}
 

@@ -54,8 +54,39 @@ export async function calculateScore(payload: ScorePayload): Promise<ScoreResult
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Unknown error" }))
-    throw new Error(err.detail ?? `API error ${res.status}`)
+    const detail = err.detail
+    const message =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((e: any) => e.msg ?? JSON.stringify(e)).join("; ")
+          : `API error ${res.status}`
+    throw new Error(message)
   }
 
   return res.json() as Promise<ScoreResult>
+}
+
+export interface InsightsPayload {
+  score: number
+  risk_band: string
+  profile_type: string
+  top_factors: { label: string; direction: string; impact: number }[]
+}
+
+export async function fetchInsights(payload: InsightsPayload): Promise<string[]> {
+  const res = await fetch(`${BASE_URL}/insights`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Unknown error" }))
+    const detail = err.detail
+    throw new Error(typeof detail === "string" ? detail : "Failed to get insights")
+  }
+
+  const data = await res.json()
+  return data.insights as string[]
 }

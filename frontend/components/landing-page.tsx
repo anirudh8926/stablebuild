@@ -46,7 +46,7 @@ export function LandingPage() {
               className="rounded-full bg-foreground px-8 py-6 text-base font-medium text-background hover:bg-foreground/90"
               onClick={() => setCurrentPage("auth")}
             >
-              Get Your Credit Score
+              Generate Your Bridge Score
             </Button>
           </div>
         </div>

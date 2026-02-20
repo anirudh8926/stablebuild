@@ -28,6 +28,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
+import httpx
+
 # Load .env file if present (before reading os.environ below)
 try:
     from dotenv import load_dotenv
@@ -436,3 +438,94 @@ def predict(body: PredictRequest) -> dict[str, Any]:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# AI Insights (OpenRouter / OpenAI-compatible)
+# ---------------------------------------------------------------------------
+
+OPENROUTER_API_KEY: str = os.environ.get(
+    "OPENROUTER_API_KEY",
+    "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",
+)
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+class InsightsRequest(BaseModel):
+    score: int = Field(..., ge=300, le=900)
+    risk_band: str
+    profile_type: str = "salaried"
+    top_factors: list[dict[str, Any]] = []
+
+
+class InsightsResponse(BaseModel):
+    insights: list[str]
+
+
+@app.post("/insights", response_model=InsightsResponse, tags=["insights"])
+async def get_insights(body: InsightsRequest) -> dict[str, Any]:
+    """
+    Generate AI-powered suggestions to improve the user's credit score.
+    Uses OpenRouter (OpenAI-compatible) to produce personalised tips.
+    """
+    factors_text = "\n".join(
+        f"- {f.get('label', '?')} ({f.get('direction', '?')})"
+        for f in body.top_factors
+    ) or "No factor data available."
+
+    prompt = (
+        f"You are CreditBridge, an AI credit advisor for underbanked Indian borrowers.\n"
+        f"The user is a **{body.profile_type}** with an alternative credit score of "
+        f"**{body.score}/900** and a **{body.risk_band}** risk band.\n\n"
+        f"Top scoring factors:\n{factors_text}\n\n"
+        f"Give exactly 5 concise, actionable tips to improve their credit score. "
+        f"Each tip should be 1-2 sentences. Tailor advice to the {body.profile_type} profile. "
+        f"Focus on practical steps they can take in the next 1-3 months. "
+        f"Return ONLY a JSON array of 5 strings, no other text."
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                OPENROUTER_URL,
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "openai/gpt-3.5-turbo",
+                    "messages": [
+                        {"role": "system", "content": "You are a helpful credit advisor. Always respond with valid JSON only."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 500,
+                },
+            )
+            resp.raise_for_status()
+
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"].strip()
+
+        # Parse the JSON array from the LLM response
+        import json
+        try:
+            insights = json.loads(content)
+            if isinstance(insights, list):
+                return {"insights": [str(tip) for tip in insights[:5]]}
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: split by newlines if JSON parsing fails
+        lines = [
+            line.strip().lstrip("0123456789.-) ").strip()
+            for line in content.split("\n")
+            if line.strip() and len(line.strip()) > 10
+        ]
+        return {"insights": lines[:5] if lines else [content]}
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"LLM API error: {e.response.status_code}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to get AI insights: {str(e)}")
+

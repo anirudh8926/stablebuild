@@ -120,6 +120,13 @@ export function DynamicFormPage() {
       income_variance,
       savings_balance: parseFloat(formData.savingsBalance) || 0,
       months_active:   parseFloat(formData.monthsActive)   || 0,
+      // transaction fields
+      total_credits:      parseFloat(formData.totalCredits)      || 0,
+      total_debits:       parseFloat(formData.totalDebits)       || 0,
+      total_transactions: parseFloat(formData.totalTransactions) || 0,
+      avg_credit_amount:  parseFloat(formData.avgCreditAmount)   || 0,
+      avg_debit_amount:   parseFloat(formData.avgDebitAmount)    || 0,
+      recurring_ratio:    parseFloat(formData.recurringRatio)    || 0,
       // profile-specific
       ...(profile === "student"    && { gpa, attendance_rate }),
       ...(profile === "gig"        && {
@@ -235,7 +242,64 @@ export function DynamicFormPage() {
             </div>
           </section>
 
-          {/* Section 3: Profile-Specific Information */}
+          {/* Section 3: Transaction Information */}
+          <section>
+            <h2 className="mb-5 text-lg font-semibold text-foreground">
+              Transaction Information
+            </h2>
+            <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-6">
+              <FormField
+                label="Total Credits (INR)"
+                id="totalCredits"
+                type="number"
+                placeholder="e.g. 120000"
+                value={formData.totalCredits}
+                onChange={(val) => update("totalCredits", val)}
+              />
+              <FormField
+                label="Total Debits (INR)"
+                id="totalDebits"
+                type="number"
+                placeholder="e.g. 95000"
+                value={formData.totalDebits}
+                onChange={(val) => update("totalDebits", val)}
+              />
+              <FormField
+                label="Total Transactions"
+                id="totalTransactions"
+                type="number"
+                placeholder="e.g. 150"
+                value={formData.totalTransactions}
+                onChange={(val) => update("totalTransactions", val)}
+              />
+              <FormField
+                label="Avg Credit Amount (INR)"
+                id="avgCreditAmount"
+                type="number"
+                placeholder="e.g. 8000"
+                value={formData.avgCreditAmount}
+                onChange={(val) => update("avgCreditAmount", val)}
+              />
+              <FormField
+                label="Avg Debit Amount (INR)"
+                id="avgDebitAmount"
+                type="number"
+                placeholder="e.g. 5000"
+                value={formData.avgDebitAmount}
+                onChange={(val) => update("avgDebitAmount", val)}
+              />
+              <FormField
+                label="Recurring Payment Ratio (0-1)"
+                id="recurringRatio"
+                type="number"
+                placeholder="e.g. 0.45"
+                value={formData.recurringRatio}
+                onChange={(val) => update("recurringRatio", val)}
+              />
+            </div>
+          </section>
+
+          {/* Section 4: Profile-Specific Information */}
           <section>
             <h2 className="mb-5 text-lg font-semibold text-foreground">
               {profileLabels[formData.profileType] || "Profile"} Details
@@ -409,7 +473,7 @@ export function DynamicFormPage() {
                 Calculating Score...
               </span>
             ) : (
-              "Generate Credit Score"
+              "Check Your Bridge Score"
             )}
           </Button>
         </form>
